@@ -1,9 +1,5 @@
-/*
- * Classe Main: ponto de entrada da aplicação.
- * Contém o menu principal e a lógica de leitura e gravação do arquivo CSV.
- *
- * O arquivo titles.csv deve estar na pasta raiz do projeto (mesma pasta de src/ e bin/).
- */
+
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -14,6 +10,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 
+
+//fica repetindo o menu até o usuário escolher a opção 8.
 public class Main {
 
     private static int proximoIdShow  = 900000;
@@ -64,8 +62,8 @@ public class Main {
         System.out.println("───────────────────────────────────");
     }
 
-    // ── FUNCIONALIDADE 1: Ler dados de arquivo ───────────────────────────────
-    // solicita o nome do CSV, lê os dados e monta a ABB
+    //Essa parte lê o titles.csv transforma cada linha em objeto ProgramaNetFlix 
+    // filtra apenas filmes latinos dos 5 países e insere na ABB
     private static void opcaoLerArquivo(ABB<ProgramaNetFlix> arvore, Scanner scan) {
         System.out.print("\nInforme o nome do arquivo CSV (ex: titles.csv): ");
         String nomeArquivo = scan.nextLine();
@@ -85,56 +83,69 @@ public class Main {
         System.out.println("\n── Resultado da leitura ──────────────────────");
         System.out.println("  Linhas lidas do arquivo  : " + contadores[0]);
         System.out.println("  Inseridos na ABB         : " + contadores[1]);
-        System.out.println("  Descartados (incompletos): " + contadores[2]);
+        System.out.println("  Descartados pelo filtro   : " + contadores[2]);
         System.out.println("──────────────────────────────────────────────");
     }
 
-    // lê o CSV e insere cada registro válido na ABB; retorna {totalLidas, inseridas, descartadas}
+    // lê o CSV e insere cada registro válido na ABB
     private static int[] lerCSV(String nomeArquivo, ABB<ProgramaNetFlix> arvore) {
-        int lidas = 0, inseridas = 0, descartadas = 0;
-        File arquivo = new File(nomeArquivo);
-        if (!arquivo.exists()) {
-            // tenta encontrar o arquivo na raiz do projeto via classpath (funciona em qualquer máquina)
-            String primeiroCaminho = System.getProperty("java.class.path").split(File.pathSeparator)[0];
-            File raizProjeto = new File(primeiroCaminho).getAbsoluteFile().getParentFile();
-            File alternativo = new File(raizProjeto, nomeArquivo);
-            if (alternativo.exists()) {
-                arquivo = alternativo;
-            } else {
-                System.out.println("Arquivo nao encontrado!");
-                System.out.println("Caminho tentado: " + arquivo.getAbsolutePath());
-                System.out.println("Coloque o " + nomeArquivo + " nessa pasta ou informe o caminho completo.");
-                return new int[]{0, 0, 0};
-            }
+    int lidas = 0, inseridas = 0, descartadas = 0;
+    File arquivo = new File(nomeArquivo);
+
+    if (!arquivo.exists()) {
+        String primeiroCaminho = System.getProperty("java.class.path").split(File.pathSeparator)[0];
+        File raizProjeto = new File(primeiroCaminho).getAbsoluteFile().getParentFile();
+        File alternativo = new File(raizProjeto, nomeArquivo);
+
+        if (alternativo.exists()) {
+            arquivo = alternativo;
+        } else {
+            System.out.println("Arquivo nao encontrado!");
+            System.out.println("Caminho tentado: " + arquivo.getAbsolutePath());
+            System.out.println("Coloque o " + nomeArquivo + " nessa pasta ou informe o caminho completo.");
+            return new int[]{0, 0, 0};
         }
-        try (BufferedReader reader = new BufferedReader(new FileReader(arquivo))) {
-            reader.readLine(); // descarta o cabeçalho
-            String linha;
-            while ((linha = reader.readLine()) != null) {
-                if (linha.isEmpty()) continue;
-                lidas++;
-                List<String> campos = parseCsvLinha(linha);
-                if (campos.size() < 15) { descartadas++; continue; }
-                try {
-                    ProgramaNetFlix p = criarProgramaDaCampos(campos);
-                    if (p.camposEssenciaisPreenchidos()) {
-                        arvore.inserir(p);
-                        inseridas++;
-                    } else {
-                        descartadas++;
-                    }
-                } catch (NumberFormatException e) {
-                    descartadas++;
-                }
-            }
-        } catch (IOException e) {
-            System.out.println("Erro ao ler arquivo: " + e.getMessage());
-            System.out.println("Verifique se o arquivo está na pasta raiz do projeto.");
-        }
-        return new int[]{lidas, inseridas, descartadas};
     }
 
-    // monta um ProgramaNetFlix a partir dos campos do CSV
+    try (BufferedReader reader = new BufferedReader(new FileReader(arquivo))) {
+        reader.readLine();
+        String linha;
+
+        while ((linha = reader.readLine()) != null) {
+            if (linha.isEmpty()) continue;
+
+            lidas++;
+            List<String> campos = parseCsvLinha(linha);
+
+            if (campos.size() < 15) {
+                descartadas++;
+                continue;
+            }
+
+            try {
+                ProgramaNetFlix p = criarProgramaDaCampos(campos);
+
+                if (p.camposEssenciaisPreenchidos() && ehFilmeLatinoSelecionado(p)) {
+                    arvore.inserir(p);
+                    inseridas++;
+                } else {
+                    descartadas++;
+                }
+
+            } catch (NumberFormatException e) {
+                descartadas++;
+            }
+        }
+
+    } catch (IOException e) {
+        System.out.println("Erro ao ler arquivo: " + e.getMessage());
+        System.out.println("Verifique se o arquivo está na pasta raiz do projeto.");
+    }
+
+    return new int[]{lidas, inseridas, descartadas};
+}
+
+    // pega os 15 campos do CSV e monta um objeto ProgramaNetFlix
     private static ProgramaNetFlix criarProgramaDaCampos(List<String> c) {
         String id                  = c.get(0);
         String title               = c.get(1);
@@ -158,7 +169,7 @@ public class Main {
                                    tmdbPopularity, tmdbScore);
     }
 
-    // faz o parse de uma linha CSV respeitando campos entre aspas duplas
+    // serve separar os campos da linha do csv respeitando virgulas dentro de aspas
     private static List<String> parseCsvLinha(String linha) {
         List<String> campos = new ArrayList<String>();
         String campo = "";
@@ -183,8 +194,9 @@ public class Main {
         return campos;
     }
 
-    // ── FUNCIONALIDADE 2: Análises de dados ──────────────────────────────────
-    // sub-menu de análises de dados
+
+
+    //mostra o submenu com as 5 estatísticas e chama o método correto para cada uma
     private static void opcaoAnalises(ABB<ProgramaNetFlix> arvore, Scanner scan) {
         if (arvore.isEmpty()) {
             System.out.println("A árvore está vazia. Use a opção 1 para carregar os dados.");
@@ -195,12 +207,11 @@ public class Main {
             System.out.println("\n──────────────────────────────────────────────");
             System.out.println("             MENU DE ANÁLISES                 ");
             System.out.println("──────────────────────────────────────────────");
-            System.out.println("  1. N filmes com menor tmdb_popularity       ");
-            System.out.println("  2. Média IMDB por país de produção          ");
-            System.out.println("  3. [em implementação]                       ");
-            System.out.println("  4. [em implementação]                       ");
-            System.out.println(" 5. [em implementação]                       ");
-            System.out.println("  0. Voltar ao menu principal                 ");
+            System.out.println("  1. Top 10 filmes latinos com maior imdb_score");
+            System.out.println("  2. N filmes latinos com menor tmdb_popularity");
+            System.out.println("  3. Média de imdb_score por país latino       ");
+            System.out.println("  4. Filmes por gênero com imdb_score > 7.0    ");
+            System.out.println("  5. Média IMDB: curta x longa duração         ");
             System.out.println("──────────────────────────────────────────────");
             System.out.print("Escolha uma opção: ");
             try {
@@ -208,20 +219,68 @@ public class Main {
             } catch (NumberFormatException e) {
                 opcao = -1;
             }
-            switch (opcao) {
-                case 1: analise1FilmesMenosPopulares(arvore, scan); break;
-                case 2: analise2MediaImdbPorPais(arvore, scan);     break;
-                case 3:
-                case 4:
-                case 5: System.out.println("[em implementação]");   break;
+           switch (opcao) {
+                case 1: analiseTop10MaiorImdb(arvore);              break;
+                case 2: analiseFilmesMenosPopulares(arvore, scan);  break;
+                case 3: analiseMediaImdbPorPais(arvore, scan); break;
+                case 4: analiseFilmesPorGeneroMaiorQueSete(arvore, scan); break;
+                case 5: analiseMediaCurtaLongaDuracao(arvore); break;
                 case 0: break;
                 default: System.out.println("Opção inválida.");
             }
         }
     }
 
-    // análise 1: exibe os N filmes com menor tmdb_popularity (percurso pré-ordem)
-    private static void analise1FilmesMenosPopulares(ABB<ProgramaNetFlix> arvore, Scanner scan) {
+
+    // Estatística 1 -  exibe os 10 filmes latinos com maior imdb_score!!!!!
+    // utiliza percurso em ordem para coletar os filmes da ABB
+    private static void analiseTop10MaiorImdb(ABB<ProgramaNetFlix> arvore) {
+        List<ProgramaNetFlix> filmes = new ArrayList<ProgramaNetFlix>();
+
+        coletarFilmesEmOrdem(arvore.getRaiz(), filmes);
+
+        for (int i = 0; i < filmes.size() - 1; i++) {
+            for (int j = 0; j < filmes.size() - 1 - i; j++) {
+                if (filmes.get(j).getImdbScore() < filmes.get(j + 1).getImdbScore()) {
+                    ProgramaNetFlix temp = filmes.get(j);
+                    filmes.set(j, filmes.get(j + 1));
+                    filmes.set(j + 1, temp);
+                }
+            }
+        }
+
+        int limite = Math.min(10, filmes.size());
+
+        System.out.println("\n── TOP 10 FILMES LATINOS COM MAIOR IMDB SCORE ──");
+        System.out.println(" #  | Título                                    | IMDB | Ano");
+        System.out.println("----+-------------------------------------------+------+------");
+
+        for (int i = 0; i < limite; i++) {
+            ProgramaNetFlix p = filmes.get(i);
+            String titulo = p.getTitle();
+
+            if (titulo.length() > 41) {
+                titulo = titulo.substring(0, 38) + "...";
+            }
+
+            System.out.println(" " + (i + 1) + "  | "
+                    + titulo
+                    + espacos(41 - titulo.length())
+                    + " | " + p.getImdbScore()
+                    + "  | " + p.getReleaseYear());
+        }
+
+        System.out.println("────────────────────────────────────────────────");
+}
+    private static double arredondarDuasCasas(double valor) {
+    int temp = (int) (valor * 100);
+    return temp / 100.0;
+}
+
+
+
+    // Estatística 2 - pede um valor N e mostra os N filmes com menor tmdb_popularity. Usa pré-ordem!!!
+    private static void analiseFilmesMenosPopulares(ABB<ProgramaNetFlix> arvore, Scanner scan) {
         System.out.print("\nInforme N (quantidade de filmes a exibir): ");
         int n;
         try {
@@ -231,11 +290,14 @@ public class Main {
             System.out.println("Valor inválido."); return;
         }
 
-        // coleta todos os filmes em pré-ordem
+        
+
+        // Esses método percorrea ABB e colocam os filmes em uma lista para depois ordenar/analisar - PRE ORDEM!!!!!
+
         List<ProgramaNetFlix> filmes = new ArrayList<ProgramaNetFlix>();
         coletarFilmesPreOrdem(arvore.getRaiz(), filmes);
 
-        // bubble sort por tmdb_popularity crescente
+        // bubble sort por tmdb_popularity crescente --- PRA COMPARAR MAS LEMBRE QUE NAO É O MAIS EFICIENTE SO O MASI SIMPLES DE IMPLEMENTAR!!
         for (int i = 0; i < filmes.size() - 1; i++) {
             for (int j = 0; j < filmes.size() - 1 - i; j++) {
                 if (filmes.get(j).getTmdbPopularity() > filmes.get(j + 1).getTmdbPopularity()) {
@@ -245,6 +307,8 @@ public class Main {
                 }
             }
         }
+
+
 
         int limite = n < filmes.size() ? n : filmes.size();
         System.out.println("\n── " + n + " filmes com menor tmdb_popularity (pré-ordem) ────────");
@@ -264,6 +328,19 @@ public class Main {
         System.out.println("──────────────────────────────────────────────────────────────────");
     }
 
+    // metodo em ordem!!!!!!!!!!
+    private static void coletarFilmesEmOrdem(Node<ProgramaNetFlix> no, List<ProgramaNetFlix> lista) {
+        if (no == null) return;
+
+        coletarFilmesEmOrdem(no.getFilhoEsquerdo(), lista);
+
+        if (no.getValue().getShowType().equals("MOVIE")) {
+            lista.add(no.getValue());
+        }
+
+        coletarFilmesEmOrdem(no.getFilhoDireito(), lista);
+    }
+
     // percorre a ABB em pré-ordem e coleta apenas filmes (MOVIE) na lista
     private static void coletarFilmesPreOrdem(Node<ProgramaNetFlix> no, List<ProgramaNetFlix> lista) {
         if (no == null) return;
@@ -274,10 +351,16 @@ public class Main {
         coletarFilmesPreOrdem(no.getFilhoDireito(), lista);
     }
 
-    // análise 2: calcula a média de imdb_score por país de produção (percurso pós-ordem)
-    private static void analise2MediaImdbPorPais(ABB<ProgramaNetFlix> arvore, Scanner scan) {
-        System.out.println("\nExemplos de países presentes no dataset: US, GB, FR, DE, JP, IN, CA, AU, IT, ES, KR, MX, BR");
-        System.out.print("Informe o código do país (ex: US): ");
+    // Estatística 3 - Calcula a média do imdb_score para um país escolhido entre BR, MX, AR, CL e CO - Usa pós-ordem!!!!!!!!
+    private static void analiseMediaImdbPorPais(ABB<ProgramaNetFlix> arvore, Scanner scan) {
+        System.out.println("\nPaíses disponíveis para análise:");
+        System.out.println("BR = Brasil");
+        System.out.println("MX = México");
+        System.out.println("AR = Argentina");
+        System.out.println("CL = Chile");
+        System.out.println("CO = Colômbia");
+
+        System.out.print("Informe o código do país (ex: BR): ");
         String pais = scan.nextLine().toUpperCase();
 
         double[] soma = {0.0};
@@ -287,7 +370,7 @@ public class Main {
         System.out.println("\n── Média de imdb_score para produções de: " + pais + " (pós-ordem) ──");
         if (contador[0] == 0) {
             System.out.println("  Nenhum título encontrado para o país \"" + pais + "\".");
-            System.out.println("  Verifique se o código está correto (ex: US, GB, FR).");
+            System.out.println("  Verifique se o código informado é BR, MX, AR, CL ou CO.");
         } else {
             double media = soma[0] / contador[0];
             System.out.println("  Títulos encontrados : " + contador[0]);
@@ -312,12 +395,130 @@ public class Main {
         }
     }
 
-    // retorna uma String com 'n' espaços (usado na formatação da tabela)
+    // retorna uma String com 'n' espaços- SO PRA FORMATAR (CHAT SUGERIU)
     private static String espacos(int n) {
         String s = "";
         for (int i = 0; i < n; i++) s += " ";
         return s;
     }
+
+
+    //Estatística 4 - Pede um gênero e lista filmes desse gênero com imdb_score > 7.0 - Usa percurso em largura com fila!!
+    private static void analiseFilmesPorGeneroMaiorQueSete(ABB<ProgramaNetFlix> arvore, Scanner scan) {
+    System.out.print("\nInforme o gênero desejado (ex: drama, comedy, documentary): ");
+    String genero = scan.nextLine().toLowerCase();
+
+    List<ProgramaNetFlix> filmes = new ArrayList<ProgramaNetFlix>();
+    coletarFilmesEmLarguraPorGenero(arvore.getRaiz(), filmes, genero);
+
+    System.out.println("\n── FILMES DO GÊNERO \"" + genero + "\" COM IMDB > 7.0 ──");
+    System.out.println(" #  | Título                                    | IMDB | Ano");
+    System.out.println("----+-------------------------------------------+------+------");
+
+    if (filmes.isEmpty()) {
+        System.out.println("Nenhum filme encontrado para esse gênero com imdb_score > 7.0.");
+    } else {
+        for (int i = 0; i < filmes.size(); i++) {
+            ProgramaNetFlix p = filmes.get(i);
+            String titulo = p.getTitle();
+
+            if (titulo.length() > 41) {
+                titulo = titulo.substring(0, 38) + "...";
+            }
+
+            System.out.println(" " + (i + 1) + "  | "
+                    + titulo
+                    + espacos(41 - titulo.length())
+                    + " | " + p.getImdbScore()
+                    + "  | " + p.getReleaseYear());
+        }
+    }
+
+    System.out.println("────────────────────────────────────────────────");
+}
+
+    private static void coletarFilmesEmLarguraPorGenero(
+        Node<ProgramaNetFlix> raiz,
+        List<ProgramaNetFlix> lista,
+        String genero) {
+
+    if (raiz == null) return;
+
+    LinkedList<Node<ProgramaNetFlix>> fila = new LinkedList<Node<ProgramaNetFlix>>();
+    fila.addLast(raiz);
+
+    while (!fila.isEmpty()) {
+        Node<ProgramaNetFlix> atual = fila.pollFirst();
+        ProgramaNetFlix p = atual.getValue();
+
+        if (p.getGenres().toLowerCase().contains(genero)
+                && p.getImdbScore() > 7.0) {
+            lista.add(p);
+        }
+
+        if (atual.getFilhoEsquerdo() != null) {
+            fila.addLast(atual.getFilhoEsquerdo());
+        }
+
+        if (atual.getFilhoDireito() != null) {
+            fila.addLast(atual.getFilhoDireito());
+        }
+    }
+}
+    //Estatística 5 - Compara a média IMDB de filmes curtos, até 90 minutos, e longos, acima de 90 minutos.
+    private static void analiseMediaCurtaLongaDuracao(ABB<ProgramaNetFlix> arvore) {
+        double[] somaCurta = {0.0};
+        double[] somaLonga = {0.0};
+        int[] qtdCurta = {0};
+        int[] qtdLonga = {0};
+
+        calcularMediaCurtaLonga(arvore.getRaiz(), somaCurta, qtdCurta, somaLonga, qtdLonga);
+
+        System.out.println("\n── MÉDIA IMDB: CURTA X LONGA DURAÇÃO ──");
+        System.out.println("Critério: curta duração até 90 minutos; longa duração acima de 90 minutos.");
+        System.out.println("---------------------------------------------------------");
+        System.out.println("Categoria        | Quantidade | Média IMDB");
+        System.out.println("-----------------+------------+-----------");
+
+        double mediaCurta = qtdCurta[0] > 0 ? somaCurta[0] / qtdCurta[0] : 0;
+        double mediaLonga = qtdLonga[0] > 0 ? somaLonga[0] / qtdLonga[0] : 0;
+
+        System.out.println("Curta duração    | " + qtdCurta[0] + espacos(10 - String.valueOf(qtdCurta[0]).length())
+                + " | " + arredondarDuasCasas(mediaCurta));
+
+        System.out.println("Longa duração    | " + qtdLonga[0] + espacos(10 - String.valueOf(qtdLonga[0]).length())
+                + " | " + arredondarDuasCasas(mediaLonga));
+
+        System.out.println("──────────────────────────────────────────────");
+    }
+
+    private static void calcularMediaCurtaLonga(
+            Node<ProgramaNetFlix> no,
+            double[] somaCurta,
+            int[] qtdCurta,
+            double[] somaLonga,
+            int[] qtdLonga) {
+
+        if (no == null) return;
+
+        calcularMediaCurtaLonga(no.getFilhoEsquerdo(), somaCurta, qtdCurta, somaLonga, qtdLonga);
+
+        ProgramaNetFlix p = no.getValue();
+
+        if (p.getRuntime() <= 90) {
+            somaCurta[0] += p.getImdbScore();
+            qtdCurta[0]++;
+        } else {
+            somaLonga[0] += p.getImdbScore();
+            qtdLonga[0]++;
+        }
+
+        calcularMediaCurtaLonga(no.getFilhoDireito(), somaCurta, qtdCurta, somaLonga, qtdLonga);
+    }
+
+
+// aqui começa: inserir, buscar e remover
+
 
     // ── FUNCIONALIDADE 3: Inserir Programa ───────────────────────────────────
     // coleta dados do novo programa e insere na ABB
@@ -382,6 +583,9 @@ public class Main {
         else          System.out.println("Programa com ID \"" + id + "\" não encontrado.");
     }
 
+
+    //aqui começa: altura, salvar e encerrar
+
     // ── FUNCIONALIDADE 6: Exibir Altura da Árvore ────────────────────────────
     // exibe a altura atual da ABB
     private static void opcaoExibirAltura(ABB<ProgramaNetFlix> arvore) {
@@ -435,7 +639,12 @@ public class Main {
         System.out.println("\nAplicação encerrada. Até logo!");
     }
 
-    // ── Métodos utilitários (usados por várias funcionalidades) ───────────────
+
+
+        //aqui começa todos utilitários
+        //basicamente ajudam a validar entrada, converter valores e aplicar o filtro dos países latinos
+
+    
     // lê um inteiro positivo do usuário, repetindo até entrada válida
     private static int lerInteiroPositivo(Scanner scan, String mensagem) {
         int valor = -1;
@@ -465,6 +674,21 @@ public class Main {
         }
         return valor;
     }
+        private static boolean ehFilmeLatinoSelecionado(ProgramaNetFlix p) {
+        if (!p.getShowType().equalsIgnoreCase("MOVIE")) {
+            return false;
+        }
+
+        String paises = p.getProductionCountries();
+
+        return paises.contains("'BR'")
+            || paises.contains("'MX'")
+            || paises.contains("'AR'")
+            || paises.contains("'CL'")
+            || paises.contains("'CO'");
+    }
+
+
 
     // converte String para int; retorna 0 se vazia ou inválida
     private static int parseIntSeguro(String s) {
