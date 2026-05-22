@@ -2,6 +2,11 @@
  * A chave de comparação é definida pelo compareTo() do tipo T (campo "id" no projeto).
  * Percursos: emOrdem, preOrdem, posOrdem, emNivel (BFS com fila auxiliar LinkedList).
  */
+
+/*A ABB foi utilizada como estrutura principal 
+para armazenamento, busca, inserção e remoção eficiente dos registros */
+
+import java.util.LinkedList;
 public class ABB<T extends Comparable<T>> {
 
     private Node<T> raiz;

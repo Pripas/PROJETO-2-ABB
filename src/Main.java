@@ -1,5 +1,5 @@
 
-
+import java.util.LinkedList;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -125,6 +125,8 @@ public class Main {
             try {
                 ProgramaNetFlix p = criarProgramaDaCampos(campos);
 
+
+                //antes de inserir na árvore o programa pergunta se é latino se true entra na ABB
                 if (p.camposEssenciaisPreenchidos() && ehFilmeLatinoSelecionado(p)) {
                     arvore.inserir(p);
                     inseridas++;
@@ -212,6 +214,7 @@ public class Main {
             System.out.println("  3. Média de imdb_score por país latino       ");
             System.out.println("  4. Filmes por gênero com imdb_score > 7.0    ");
             System.out.println("  5. Média IMDB: curta x longa duração         ");
+            System.out.println("  0. Voltar ao menu principal          ");
             System.out.println("──────────────────────────────────────────────");
             System.out.print("Escolha uma opção: ");
             try {
@@ -239,15 +242,23 @@ public class Main {
 
         coletarFilmesEmOrdem(arvore.getRaiz(), filmes);
 
-        for (int i = 0; i < filmes.size() - 1; i++) {
-            for (int j = 0; j < filmes.size() - 1 - i; j++) {
-                if (filmes.get(j).getImdbScore() < filmes.get(j + 1).getImdbScore()) {
-                    ProgramaNetFlix temp = filmes.get(j);
-                    filmes.set(j, filmes.get(j + 1));
-                    filmes.set(j + 1, temp);
-                }
-            }
+
+        //INSERTION SORT -
+        /* porque decidimos usar: mais eficiente em listas parcialmente ordenadas(na classe ABB)
+         e possuir melhor desempenho prático em pequenos conjuntos de dados */
+        for (int i = 1; i < filmes.size(); i++) {
+        ProgramaNetFlix atual = filmes.get(i);
+        int j = i - 1;
+
+        while (j >= 0 &&
+            filmes.get(j).getImdbScore() < atual.getImdbScore()) {
+
+            filmes.set(j + 1, filmes.get(j));
+            j--;
         }
+
+    filmes.set(j + 1, atual);
+}
 
         int limite = Math.min(10, filmes.size());
 
@@ -297,16 +308,20 @@ public class Main {
         List<ProgramaNetFlix> filmes = new ArrayList<ProgramaNetFlix>();
         coletarFilmesPreOrdem(arvore.getRaiz(), filmes);
 
-        // bubble sort por tmdb_popularity crescente --- PRA COMPARAR MAS LEMBRE QUE NAO É O MAIS EFICIENTE SO O MASI SIMPLES DE IMPLEMENTAR!!
-        for (int i = 0; i < filmes.size() - 1; i++) {
-            for (int j = 0; j < filmes.size() - 1 - i; j++) {
-                if (filmes.get(j).getTmdbPopularity() > filmes.get(j + 1).getTmdbPopularity()) {
-                    ProgramaNetFlix temp = filmes.get(j);
-                    filmes.set(j, filmes.get(j + 1));
-                    filmes.set(j + 1, temp);
-                }
-            }
-        }
+        // INSERTION SORT - eficiente e simples de implementar
+        for (int i = 1; i < filmes.size(); i++) {
+            ProgramaNetFlix atual = filmes.get(i);
+            int j = i - 1;
+
+            while (j >= 0 &&
+                filmes.get(j).getTmdbPopularity() > atual.getTmdbPopularity()) {
+
+                filmes.set(j + 1, filmes.get(j));
+                j--;
+    }
+
+    filmes.set(j + 1, atual);
+}
 
 
 
@@ -674,6 +689,12 @@ public class Main {
         }
         return valor;
     }
+
+
+    /*ONDE OCORREU A DEFINIÇAO!!!! quando o usuário chega no menu de análises
+     a árvore já contém apenas filmes dos 5 países latino-americanos escolhidos */
+
+
         private static boolean ehFilmeLatinoSelecionado(ProgramaNetFlix p) {
         if (!p.getShowType().equalsIgnoreCase("MOVIE")) {
             return false;
@@ -688,7 +709,7 @@ public class Main {
             || paises.contains("'CO'");
     }
 
-
+//------------------------------------------------------------
 
     // converte String para int; retorna 0 se vazia ou inválida
     private static int parseIntSeguro(String s) {
